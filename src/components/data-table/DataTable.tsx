@@ -123,245 +123,261 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
 } from "@/components/ui/select";
 import {
-    flexRender,
-    getCoreRowModel,
-    useReactTable,
+	flexRender,
+	getCoreRowModel,
+	useReactTable,
 } from "@tanstack/react-table";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import {
-    Pagination,
-    PaginationContent,
-    PaginationItem,
-    PaginationNext,
-    PaginationPrevious,
+	Pagination,
+	PaginationContent,
+	PaginationItem,
+	PaginationNext,
+	PaginationPrevious,
 } from "../ui/pagination";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
 } from "../ui/table";
 
 export type CustomColumnDef<T> = {
-    accessorKey?: keyof T;
-    header: string;
-    cell?: (info: { getValue: () => unknown }) => React.ReactNode;
+	accessorKey?: keyof T;
+	header: string;
+	cell?: (info: { getValue: () => unknown }) => React.ReactNode;
 };
 
 interface DataTableProps<T> {
-    columns: CustomColumnDef<T>[];
-    fetchData: (
-        page: number,
-        pageSize: number,
-        filters: Record<string, string>,
-    ) => Promise<{
-        data: T[];
-        total: number;
-    }>;
+	columns: CustomColumnDef<T>[];
+	fetchData: (
+		page: number,
+		pageSize: number,
+		filters: Record<string, string>,
+	) => Promise<{
+		data: T[];
+		total: number;
+	}>;
 }
 
 interface Filter {
-    column: string;
-    value: string;
+	column: string;
+	value: string;
 }
 
 export function DataTable<T>({ columns, fetchData }: DataTableProps<T>) {
-    const [data, setData] = useState<T[]>([]);
-    const [totalRows, setTotalRows] = useState(0);
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [filters, setFilters] = useState<Filter[]>([]);
+	const [data, setData] = useState<T[]>([]);
+	const [totalRows, setTotalRows] = useState(0);
+	const [page, setPage] = useState(1);
+	const [pageSize, setPageSize] = useState(10);
+	const [filters, setFilters] = useState<Filter[]>([
+		{ column: columns[0].accessorKey as string, value: "" },
+	]);
 
-    const table = useReactTable({
-        data,
-        columns,
-        pageCount: Math.ceil(totalRows / pageSize),
-        state: {
-            pagination: { pageIndex: page - 1, pageSize },
-        },
-        getCoreRowModel: getCoreRowModel(),
-        manualPagination: true,
-    });
+	const table = useReactTable({
+		data,
+		columns,
+		pageCount: Math.ceil(totalRows / pageSize),
+		state: {
+			pagination: { pageIndex: page - 1, pageSize },
+		},
+		getCoreRowModel: getCoreRowModel(),
+		manualPagination: true,
+	});
 
-    // Fetch data when filters, page, or pageSize change
-    const handleFetchData = useCallback(async () => {
-        const filterObject = filters.reduce(
-            (acc, filter) => {
-                acc[filter.column] = filter.value;
-                return acc;
-            },
-            {} as Record<string, string>,
-        );
+	// Fetch data when filters, page, or pageSize change
+	const handleFetchData = useCallback(async () => {
+		const filterObject = filters.reduce(
+			(acc, filter) => {
+				acc[filter.column] = filter.value;
+				return acc;
+			},
+			{} as Record<string, string>,
+		);
 
-        const { data, total } = await fetchData(page, pageSize, filterObject);
-        setData(data);
-        setTotalRows(total);
-    }, [fetchData, page, pageSize, filters]);
+		const { data, total } = await fetchData(page, pageSize, filterObject);
+		setData(data);
+		setTotalRows(total);
+	}, [fetchData, page, pageSize, filters]);
 
-    useEffect(() => {
-        handleFetchData();
-    }, [handleFetchData]);
+	useEffect(() => {
+		handleFetchData();
+	}, [handleFetchData]);
 
-    // Handle adding a new filter
-    const handleAddFilter = () => {
-        setFilters((prevFilters) => [...prevFilters, { column: "", value: "" }]);
-    };
+	// Handle changing a filter's column or value
+	const handleFilterChange = (
+		index: number,
+		key: "column" | "value",
+		value: string,
+	) => {
+		const updatedFilters = [...filters];
+		updatedFilters[index][key] = value;
+		setFilters(updatedFilters);
+	};
 
-    // Handle changing a filter's column or value
-    const handleFilterChange = (
-        index: number,
-        key: "column" | "value",
-        value: string,
-    ) => {
-        const updatedFilters = [...filters];
-        updatedFilters[index][key] = value;
-        setFilters(updatedFilters);
-    };
+	// Handle removing a filter
+	const handleRemoveFilter = (index: number) => {
+		const updatedFilters = filters.filter((_, i) => i !== index);
+		setFilters(updatedFilters);
+	};
 
-    // Handle removing a filter
-    const handleRemoveFilter = (index: number) => {
-        const updatedFilters = filters.filter((_, i) => i !== index);
-        setFilters(updatedFilters);
-    };
+	// Get list of columns that are already selected
+	const selectedColumns = filters.map((filter) => filter.column);
 
-    // Get list of columns that are already selected
-    const selectedColumns = filters.map((filter) => filter.column);
+	// Get list of columns that are not already selected
+	const remainderColumns = columns.filter(
+		(col) => !selectedColumns.includes(col.accessorKey as string),
+	);
+	// Handle adding a new filter
+	const handleAddFilter = () => {
+		setFilters((prevFilters) => [
+			...prevFilters,
+			{ column: remainderColumns[0].accessorKey as string, value: "" },
+		]);
+	};
+	return (
+		<div className="m-4">
+			{/* Dynamic Filters Section */}
 
-    return (
-        <div className="m-4">
-            {/* Dynamic Filters Section */}
+			<div className="border border-border rounded-md">
+				<div className="border-b">
+					<Popover>
+						<PopoverTrigger asChild>
+							<Button className="m-2">Filters</Button>
+						</PopoverTrigger>
+						<PopoverContent
+							side="bottom"
+							align="start"
+							className="w-auto max-h-60 overflow-y-auto"
+						>
+							<div className="mb-6">
+								{filters.map((filter, index) => (
+									<div
+										key={filter.column}
+										className="flex items-center gap-4 mb-4"
+									>
+										{/* Column Select */}
+										<Select
+											value={filter.column}
+											onValueChange={(value) =>
+												handleFilterChange(index, "column", value)
+											}
+										>
+											<SelectTrigger className="w-48">
+												<SelectValue placeholder="Select column" />
+											</SelectTrigger>
+											<SelectContent>
+												{columns
+													.filter(
+														(col) =>
+															!selectedColumns.includes(
+																col.accessorKey as string,
+															) || col.accessorKey === filter.column,
+													)
+													.map((col) => (
+														<SelectItem
+															key={col.accessorKey as string}
+															value={col.accessorKey as string}
+														>
+															{col.header}
+														</SelectItem>
+													))}
+											</SelectContent>
+										</Select>
 
+										{/* Filter Value Input */}
+										<Input
+											placeholder="Enter filter values (comma-separated)"
+											value={filter.value}
+											onChange={(e) =>
+												handleFilterChange(index, "value", e.target.value)
+											}
+										/>
 
-            <div className="border border-border rounded-md">
-                <div className="border-b">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button className="m-2">Filters</Button>
-                        </PopoverTrigger>
-                        <PopoverContent side="bottom" align="start" className="w-auto">
-                            <div className="mb-6">
-                                {filters.map((filter, index) => (
-                                    <div key={filter.column} className="flex items-center gap-4 mb-4">
-                                        {/* Column Select */}
-                                        <Select
-                                            value={filter.column}
-                                            onValueChange={(value) =>
-                                                handleFilterChange(index, "column", value)
-                                            }
-                                        >
-                                            <SelectTrigger className="w-48">
-                                                <SelectValue placeholder="Select column" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {columns
-                                                    .filter(
-                                                        (col) =>
-                                                            !selectedColumns.includes(col.accessorKey as string) ||
-                                                            col.accessorKey === filter.column,
-                                                    )
-                                                    .map((col) => (
-                                                        <SelectItem
-                                                            key={col.accessorKey as string}
-                                                            value={col.accessorKey as string}
-                                                        >
-                                                            {col.header}
-                                                        </SelectItem>
-                                                    ))}
-                                            </SelectContent>
-                                        </Select>
-
-                                        {/* Filter Value Input */}
-                                        <Input
-                                            placeholder="Enter filter values (comma-separated)"
-                                            value={filter.value}
-                                            onChange={(e) =>
-                                                handleFilterChange(index, "value", e.target.value)
-                                            }
-                                        />
-
-                                        {/* Remove Filter Button */}
-                                        <Button
-                                            variant="destructive"
-                                            onClick={() => handleRemoveFilter(index)}
-                                        >
-                                            Remove
-                                        </Button>
-                                    </div>
-                                ))}
-                                <Button onClick={handleAddFilter}>Add Filter</Button>
-                            </div>
-                            <div className="flex justify-end">
-                                <Button>Apply</Button>
-
-                            </div>
-                        </PopoverContent>
-                    </Popover>
-                </div>
-                <Table className="min-w-full divide-y divide-gray-200 border-b">
-                    <TableHeader>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => (
-                                    <TableHead key={header.id}>
-                                        {flexRender(
-                                            header.column.columnDef.header,
-                                            header.getContext(),
-                                        )}
-                                    </TableHead>
-                                ))}
-                            </TableRow>
-                        ))}
-                    </TableHeader>
-                    <TableBody>
-                        {table.getRowModel().rows.map((row) => (
-                            <TableRow key={row.id}>
-                                {row.getVisibleCells().map((cell) => (
-                                    <TableCell key={cell.id}>
-                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-                <div className="flex justify-between items-center mx-2">
-                    <div>
-                        <span>
-                            Page {page} of {Math.ceil(totalRows / pageSize)}
-                        </span>
-                    </div>
-                    <div>
-                        <Pagination>
-                            <PaginationContent>
-                                <PaginationItem>
-                                    <PaginationPrevious
-                                        onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                                        aria-disabled={page === 1}
-                                    />
-                                </PaginationItem>
-                                <PaginationItem>
-                                    <PaginationNext
-                                        onClick={() => setPage((prev) => prev + 1)}
-                                        aria-disabled={page >= Math.ceil(totalRows / pageSize)}
-                                    />
-                                </PaginationItem>
-                            </PaginationContent>
-                        </Pagination>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
+										{/* Remove Filter Button */}
+										<Button
+											variant="destructive"
+											onClick={() => handleRemoveFilter(index)}
+										>
+											Remove
+										</Button>
+									</div>
+								))}
+								<Button
+									onClick={handleAddFilter}
+									className="w-full"
+									disabled={remainderColumns.length === 0}
+								>
+									Add Filter
+								</Button>
+							</div>
+						</PopoverContent>
+					</Popover>
+				</div>
+				<Table className="min-w-full divide-y divide-gray-200 border-b">
+					<TableHeader>
+						{table.getHeaderGroups().map((headerGroup) => (
+							<TableRow key={headerGroup.id}>
+								{headerGroup.headers.map((header) => (
+									<TableHead key={header.id}>
+										{flexRender(
+											header.column.columnDef.header,
+											header.getContext(),
+										)}
+									</TableHead>
+								))}
+							</TableRow>
+						))}
+					</TableHeader>
+					<TableBody>
+						{table.getRowModel().rows.map((row) => (
+							<TableRow key={row.id}>
+								{row.getVisibleCells().map((cell) => (
+									<TableCell key={cell.id}>
+										{flexRender(cell.column.columnDef.cell, cell.getContext())}
+									</TableCell>
+								))}
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+				<div className="flex justify-between items-center mx-2">
+					<div>
+						<span>
+							Page {page} of {Math.ceil(totalRows / pageSize)}
+						</span>
+					</div>
+					<div>
+						<Pagination>
+							<PaginationContent>
+								<PaginationItem>
+									<PaginationPrevious
+										onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+										aria-disabled={page === 1}
+									/>
+								</PaginationItem>
+								<PaginationItem>
+									<PaginationNext
+										onClick={() => setPage((prev) => prev + 1)}
+										aria-disabled={page >= Math.ceil(totalRows / pageSize)}
+									/>
+								</PaginationItem>
+							</PaginationContent>
+						</Pagination>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
 }
